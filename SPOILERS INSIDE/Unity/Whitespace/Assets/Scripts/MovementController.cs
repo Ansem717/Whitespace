@@ -12,6 +12,10 @@ public class MovementController : MonoBehaviour {
     private bool ForwardInput() => Input.GetKeyDown(KeyCode.W) || Input.GetKeyDown(KeyCode.UpArrow);
     private bool RightInput() => Input.GetKeyDown(KeyCode.D) || Input.GetKeyDown(KeyCode.RightArrow);
 
+    //TODO:
+    //Movement doesn't work because the rooms need to be repurposed for the new dynamic system
+    //And RoomSpawner.cs needs an update loop.
+
     public GameObject startRoom;
     public GameObject leftRoom;
     public GameObject forwardRoom;
