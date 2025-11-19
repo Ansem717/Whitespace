@@ -1,6 +1,7 @@
+using Unity.VisualScripting;
 using UnityEngine;
 
-public enum RoomDir { Left, Center, Right };
+public enum RoomName {Current, Left, Center, Right };
 
 public class RoomSpawner : MonoBehaviour {
 
@@ -9,14 +10,23 @@ public class RoomSpawner : MonoBehaviour {
 
     private GameObject CurrentRoom;
 
-    void Start() {
+    void Awake() {
+        ResetRooms();
+    }
+
+    public void ResetRooms() {
+        foreach (Transform room in RoomContainer) room.name = "Old";
+        DestroyOldRooms();
         CurrentRoom = Instantiate(EmptyRoomPrefab, RoomContainer);
         CurrentRoom.name = "Room_Current";
         SpawnNeighbors();
     }
 
-    void Update() {
-
+    public void BeginChangeRooms(Transform destRoom) {
+        foreach (Transform room in RoomContainer) room.name = "Old";
+        CurrentRoom = destRoom.gameObject;
+        CurrentRoom.name = "Room_Current";
+        SpawnNeighbors();
     }
 
     private void SpawnNeighbors() {
@@ -25,13 +35,18 @@ public class RoomSpawner : MonoBehaviour {
         _ = SpawnRightRoom();
     }
 
-    private GameObject SpawnLeftRoom() => SpawnRoom(RoomDir.Left, new(-7f, 0f, 1f), Quaternion.Euler(0f, -90f, 0f));
-    private GameObject SpawnCenterRoom() => SpawnRoom(RoomDir.Center, new(0f, 0f, 8f), Quaternion.Euler(0f, 0f, 0f));
-    private GameObject SpawnRightRoom() => SpawnRoom(RoomDir.Right, new(7f, 0f, 1f), Quaternion.Euler(0f, 90f, 0f));
+    public void DestroyOldRooms() {
+        foreach (Transform t in RoomContainer.transform) {
+            if (t.name.StartsWith("Old")) Destroy(t.gameObject);
+        }
+    }
+
+    private GameObject SpawnLeftRoom() => SpawnRoom(RoomName.Left, new(-7f, 0f, 1f), Quaternion.Euler(0f, -90f, 0f));
+    private GameObject SpawnCenterRoom() => SpawnRoom(RoomName.Center, new(0f, 0f, 8f), Quaternion.Euler(0f, 0f, 0f));
+    private GameObject SpawnRightRoom() => SpawnRoom(RoomName.Right, new(7f, 0f, 1f), Quaternion.Euler(0f, 90f, 0f));
 
 
-    private GameObject SpawnRoom(RoomDir rd, Vector3 offset, Quaternion rot) {
-        Debug.Log($"Spawning {rd} room.");
+    private GameObject SpawnRoom(RoomName rd, Vector3 offset, Quaternion rot) {
         // convert to world-space position/rotation relative to CurrentRoom
         Vector3 worldPos = CurrentRoom.transform.TransformPoint(offset);
         Quaternion worldRot = CurrentRoom.transform.rotation * rot;

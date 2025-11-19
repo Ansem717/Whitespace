@@ -8,57 +8,86 @@ public class MovementController : MonoBehaviour {
     [Tooltip("Movement speed along the path (units/sec).")]
     public float moveSpeed = 4f;
 
-    private bool LeftInput() => Input.GetKeyDown(KeyCode.A) || Input.GetKeyDown(KeyCode.LeftArrow);
-    private bool ForwardInput() => Input.GetKeyDown(KeyCode.W) || Input.GetKeyDown(KeyCode.UpArrow);
-    private bool RightInput() => Input.GetKeyDown(KeyCode.D) || Input.GetKeyDown(KeyCode.RightArrow);
-
-    //TODO:
-    //Movement doesn't work because the rooms need to be repurposed for the new dynamic system
-    //And RoomSpawner.cs needs an update loop.
-
-    public GameObject startRoom;
-    public GameObject leftRoom;
-    public GameObject forwardRoom;
-    public GameObject rightRoom;
+    public GameObject RoomContainer;
+    public RoomSpawner roomSpawner;
 
     //persistance
-    private GameObject target = null;
+    private Transform target = null;
     private Coroutine transitionCoroutine = null; // movement coroutine
     private Coroutine rotationCoroutine = null;   // rotation coroutine
-    private GameObject currentRoom = null;
+    private Transform currentRoom = null;
 
-    void Start() => currentRoom = startRoom;
+    /////////////////////////////////////////////////////////////////////////////
+
+    void Start() {
+        currentRoom = GetRoom(RoomName.Current);
+    }
+
+    public Transform GetRoom(RoomName dir) {
+        Transform ret = RoomContainer.transform.Find("Room_" + dir.ToString());
+        return ret;
+    }
+
+    private bool LeftInput() => Input.GetKeyDown(KeyCode.A) || Input.GetKeyDown(KeyCode.LeftArrow);
+    private bool CenterInput() => Input.GetKeyDown(KeyCode.W) || Input.GetKeyDown(KeyCode.UpArrow);
+    private bool RightInput() => Input.GetKeyDown(KeyCode.D) || Input.GetKeyDown(KeyCode.RightArrow);
 
     void Update() {
         if (Input.GetKeyDown(KeyCode.R)) {
             Debug.Log("Resetting");
             ResetToStart();
         } else if (target == null) {
-            string chosenWaypoint = "none";
+            RoomName chosenWaypoint = RoomName.Current;
             if (LeftInput()) {
-                chosenWaypoint = "Left";
-                Debug.Log("moving left!");
-                target = leftRoom;
-            } else if (ForwardInput()) {
-                chosenWaypoint = "Center";
-                Debug.Log("moving forward!");
-                target = forwardRoom;
+                chosenWaypoint = RoomName.Left;
+                target = GetRoom(RoomName.Left);
+            } else if (CenterInput()) {
+                chosenWaypoint = RoomName.Center;
+                target = GetRoom(RoomName.Center);
             } else if (RightInput()) {
-                chosenWaypoint = "Right";
-                Debug.Log("moving right!");
-                target = rightRoom;
+                chosenWaypoint = RoomName.Right;
+                target = GetRoom(RoomName.Right);
             }
 
             if (target != null) {
+                Debug.Log($"Moving {chosenWaypoint}!");
                 // get the entry/exit transforms under each room's Waypoints container
-                Transform entry = GetWaypointTransform(currentRoom, chosenWaypoint);
+                if (currentRoom == null) currentRoom = GetRoom(RoomName.Current); //Attempt to fetch current room again
+                Transform entry = GetWaypointTransform(currentRoom, chosenWaypoint.ToString());
                 Transform exit = GetWaypointTransform(target, "End");
 
-                // If either waypoint is missing, fall back to center of room (no clipping guarantee)
-                if (entry == null) entry = currentRoom != null ? currentRoom.transform : this.transform;
-                if (exit == null) exit = target != null ? target.transform : this.transform;
+                // If either waypoint is missing, fall back options
+                if (entry == null) {
+                    if (currentRoom != null) {
+                        entry = currentRoom.transform;
+                        Debug.LogWarning($"Entry waypoint was null — falling back to currentRoom '{currentRoom.name}'. Waypoints shouldn't be null.");
+                    } else {
+                        entry = this.transform;
+                        Debug.LogError("Entry waypoint and currentRoom are both null — falling back to this.transform. Waypoints shouldn't be null.");
+                    }
+                }
 
-                // If a transition is already running, stop it (we replace with the new one).
+                if (exit == null) {
+                    if (target != null) {
+                        exit = target.transform;
+                        Debug.LogWarning($"Exit waypoint was null — falling back to target '{target.name}'. Waypoints shouldn't be null.");
+                    } else {
+                        exit = this.transform;
+                        Debug.LogError("Exit waypoint and target are both null — falling back to this.transform. Waypoints shouldn't be null.");
+                    }
+                }
+
+                //send decision into input handler before spawning new rooms.
+                if (chosenWaypoint == RoomName.Center) {
+                    InputHandler.Instance.Submit();
+                } else {
+                    InputHandler.Instance.Insert(chosenWaypoint == RoomName.Right);
+                }
+
+                //before we start the coroutine, notify room spawner
+                roomSpawner.BeginChangeRooms(target);
+
+                // If a transition is already running, stop it (just incase).
                 if (transitionCoroutine != null) {
                     StopCoroutine(transitionCoroutine);
                     transitionCoroutine = null;
@@ -68,29 +97,30 @@ public class MovementController : MonoBehaviour {
                     rotationCoroutine = null;
                 }
 
-                // start movement and rotation coroutines in parallel
+                // start movement and rotation coroutines 
                 transitionCoroutine = StartCoroutine(MoveAlongPath(entry, exit, target));
-                // rotation coroutine will be started from MoveAlongPath with correct timing
+
+
             }
         }
     }
 
     // Find a waypoint child under room: "Waypoints/<name>"
-    private Transform GetWaypointTransform(GameObject room, string name) {
+    private Transform GetWaypointTransform(Transform room, string name) {
         if (room == null) return null;
-        Transform waypoints = room.transform.Find("Waypoints");
+        Transform waypoints = room.Find("Waypoints");
         if (waypoints == null) return null;
         Transform t = waypoints.Find(name);
         return t;
     }
 
-    private IEnumerator MoveAlongPath(Transform entry, Transform exit, GameObject destRoom) {
+    private IEnumerator MoveAlongPath(Transform entry, Transform exit, Transform destRoom) {
         // Build path points
         Vector3 startPos = transform.position;
         Vector3 entryPos = entry.position;
         Vector3 exitPos = exit.position;
-        Quaternion yawOnly = Quaternion.Euler(0f, destRoom.transform.eulerAngles.y, 0f);
-        Vector3 finalPos = destRoom.transform.position + yawOnly * LocalOffset;
+        Quaternion yawOnly = Quaternion.Euler(0f, destRoom.eulerAngles.y, 0f);
+        Vector3 finalPos = destRoom.position + yawOnly * LocalOffset;
 
         Vector3[] points = new Vector3[] { startPos, entryPos, exitPos, finalPos };
 
@@ -105,7 +135,7 @@ public class MovementController : MonoBehaviour {
 
         // If there's nowhere to go, snap and finish
         if (totalLen <= Mathf.Epsilon) {
-            SnapToFinal(destRoom, finalPos, destRoom.transform.eulerAngles.y);
+            SnapToFinal(destRoom, finalPos, destRoom.eulerAngles.y);
             yield break;
         }
 
@@ -120,8 +150,8 @@ public class MovementController : MonoBehaviour {
         float startYaw = transform.eulerAngles.y;
         // IMPORTANT: Waypoints are NOT rotated. Use the ENDPOINT yaw (exit) for rotating toward the door.
         // This ensures the camera rotates to face into the next room by the time it reaches the ENTRY waypoint.
-        float entryYaw = exit.eulerAngles.y; // <-- changed: use exit (End) yaw, not entry yaw
-        float finalYaw = destRoom.transform.eulerAngles.y;
+        float entryYaw = exit.eulerAngles.y;
+        float finalYaw = destRoom.eulerAngles.y;
 
         // Start rotation coroutine that interpolates yaw over the timeline.
         if (rotationCoroutine != null) {
@@ -129,7 +159,7 @@ public class MovementController : MonoBehaviour {
             rotationCoroutine = null;
         }
         rotationCoroutine = StartCoroutine(RotateOverTimeline(startYaw, entryYaw, finalYaw, entryTime, totalTime));
-        
+
         float traveled = 0f;
 
         // Movement loop: move at constant speed along polyline
@@ -156,12 +186,14 @@ public class MovementController : MonoBehaviour {
         }
 
         // finalize exact placement and cleanup
-        transform.SetPositionAndRotation(finalPos, Quaternion.Euler(-3f, finalYaw, 0f));
-        currentRoom = destRoom;
+        transform.SetPositionAndRotation(finalPos, Quaternion.Euler(transform.eulerAngles.x, finalYaw, 0f));
         target = null;
 
         // stop movement coroutine reference
         transitionCoroutine = null;
+
+        //Now that we're done, destroy the old rooms
+        roomSpawner.DestroyOldRooms();
     }
 
     // Rotation coroutine: interpolate yaw over the movement timeline.
@@ -172,7 +204,7 @@ public class MovementController : MonoBehaviour {
 
         // Edge cases: if totalTime is zero (or nearly), snap immediately
         if (totalTime <= Mathf.Epsilon) {
-            transform.rotation = Quaternion.Euler(-3f, finalYaw, 0f);
+            transform.rotation = Quaternion.Euler(transform.eulerAngles.x, finalYaw, 0f);
             rotationCoroutine = null;
             yield break;
         }
@@ -195,17 +227,17 @@ public class MovementController : MonoBehaviour {
                 yaw = Mathf.LerpAngle(entryYaw, finalYaw, tAfterEntry);
             }
 
-            transform.rotation = Quaternion.Euler(-3f, yaw, 0f);
+            transform.rotation = Quaternion.Euler(transform.eulerAngles.x, yaw, 0f);
             yield return null;
         }
 
         // Ensure final yaw exactly matches finalYaw
-        transform.rotation = Quaternion.Euler(-3f, finalYaw, 0f);
+        transform.rotation = Quaternion.Euler(transform.eulerAngles.x, finalYaw, 0f);
         rotationCoroutine = null;
     }
 
-    private void SnapToFinal(GameObject destRoom, Vector3 finalPos, float finalYaw) {
-        transform.SetPositionAndRotation(finalPos, Quaternion.Euler(-3f, finalYaw, 0f));
+    private void SnapToFinal(Transform destRoom, Vector3 finalPos, float finalYaw) {
+        transform.SetPositionAndRotation(finalPos, Quaternion.Euler(transform.eulerAngles.x, finalYaw, 0f));
         currentRoom = destRoom;
         target = null;
         transitionCoroutine = null;
@@ -226,14 +258,20 @@ public class MovementController : MonoBehaviour {
         // Clear target so Update won't resume transitioning
         target = null;
 
+        // Reset input buffers
+        InputHandler.Instance.Clear();
+
+        // Reset room spawner's rooms
+        roomSpawner.ResetRooms();
+
         // Set current room to startRoom
-        currentRoom = startRoom;
+        currentRoom = GetRoom(RoomName.Current);
 
         // Snap camera to start position/rotation (no smoothing)
         if (currentRoom != null) {
-            Quaternion yawOnly = Quaternion.Euler(0f, currentRoom.transform.eulerAngles.y, 0f);
-            Vector3 snapPos = currentRoom.transform.position + yawOnly * LocalOffset;
-            Quaternion snapRot = Quaternion.Euler(-3f, currentRoom.transform.eulerAngles.y, 0f);
+            Quaternion yawOnly = Quaternion.Euler(0f, currentRoom.eulerAngles.y, 0f);
+            Vector3 snapPos = currentRoom.position + yawOnly * LocalOffset;
+            Quaternion snapRot = Quaternion.Euler(transform.eulerAngles.x, currentRoom.eulerAngles.y, 0f);
 
             transform.SetPositionAndRotation(snapPos, snapRot);
         }
