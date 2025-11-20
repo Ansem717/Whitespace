@@ -1,0 +1,39 @@
+WHITESPACE
+- The core concept of the game is that the player initially only knows 3 buttons: LEFT, RIGHT, and FORWARD
+- The player wanders aimlessly through these rooms until stuff happens and they have to figure stuff out. 
+- The game should go past "just find the exit." I want underlying layers to the game.
+
+What the player doesn't know
+(SPOILERS)
+Moving left and right record bits. Moving forward submits the bits to parse as a character using a predefined map. Forming enough characters results in a word, which interacts within the environment / system.
+
+For example: "EXIT" and other synonyms are how the player actually "leaves" the maze. Specifically, the user can find a way out by following the path:
+```
+LLLLFLRRLFLRLRF (15 steps)
+0000 0110 0101
+   O    U    T
+```
+Using this keyword, the player would travel through 15 rooms to find the exit. 
+
+Other ideas:
+"OFF" - the next room's lights are off. This room requires a flashlight to get information
+"FLASH" or "LIGHT" = the next room has a flashlight
+"UV" turns on a UV view, which can provide more information. 
+"FEAR" / "DEATH" / "BLOOD" and other synonyms for horror elements would significantly increase tension through audio, visuals, and possibly jumpscare.
+"WHITESPACE" - if the user types WHITESPACE the game "fake" crashes and the player enters a whole new game. 
+"HELP", "HINT", "HUH", "INFO", and synonyms will provide specific hints to the player.
+"PHONE", "CALL", "RING" causes the next room to have a phone which the user can interact with to make a phone call. 
+"MUSIC" and synonyms causes the next room to spawn with musical instrument which are hints to a puzzle
+====================
+
+Subtle hints will be conveyed to the player throughout the game. 
+
+Symbols have different purposes which are aligned throughout gameplay. I'm not going to describe them in notepad.
+(Left.png) NO, NULL, ZERO, or LEFT
+(Right.png) YES, EXISTS, ONE, or RIGHT
+(Submit.png) UNCERTAIN, TEST, CHECK, or SUBMIT
+
+In the first room, the player will see the buttons to press in order to move (WAD or UP,LEFT,RIGHT).
+
+These symbols will exist throughout the game, I guess?
+I am at a writers block.
