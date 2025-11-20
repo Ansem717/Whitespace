@@ -34,7 +34,6 @@ public class MovementController : MonoBehaviour {
 
     void Update() {
         if (Input.GetKeyDown(KeyCode.R)) {
-            Debug.Log("Resetting");
             ResetToStart();
         } else if (target == null) {
             RoomName chosenWaypoint = RoomName.Current;
@@ -50,7 +49,6 @@ public class MovementController : MonoBehaviour {
             }
 
             if (target != null) {
-                Debug.Log($"Moving {chosenWaypoint}!");
                 // get the entry/exit transforms under each room's Waypoints container
                 if (currentRoom == null) currentRoom = GetRoom(RoomName.Current); //Attempt to fetch current room again
                 Transform entry = GetWaypointTransform(currentRoom, chosenWaypoint.ToString());

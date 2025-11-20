@@ -1,0 +1,25 @@
+using System.Collections.Generic;
+using UnityEngine;
+
+public class #CLASSNAME# : IKeywordHandler {
+    private List<string> keywords = new List<string>() {
+        "A",
+        "B",
+    };
+
+    public IReadOnlyList<string> Keywords => keywords;
+
+    public bool TryExecute() {
+        Debug.Log("#CLASSNAME# trying");
+
+        foreach (string key in keywords) {
+            if (InputHandler.Instance.EndsWith(key)) {
+                Debug.Log($"{key} matched.");
+                return true;
+            }
+        }
+
+        Debug.Log("#CLASSNAME# failed");
+        return false;
+    }
+}

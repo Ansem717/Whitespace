@@ -100,8 +100,10 @@ public class InputHandler : MonoBehaviour {
 
     private List<bool> iBuffer; //stores the 1 and 0 values from the player
     public int BitBufferSize;
+
     private StringBuilder cBuffer; //converts iBuffer into a character and stores it, up to 128 characters
     private SubmitTree sTree;
+    private List<string> History;
 
       ////////////////////////
      ///Singleton Paradigm///
@@ -125,6 +127,7 @@ public class InputHandler : MonoBehaviour {
     public void Start() {
         iBuffer = new();
         cBuffer = new(128);
+        History = new();
         sTree = SubmitTree.BuildTree();
     }
 
@@ -135,10 +138,23 @@ public class InputHandler : MonoBehaviour {
         iBuffer.Add(right);
         if (iBuffer.Count >= BitBufferSize) Pop();
         Print("Inserted into iBuffer.");
+        Debug.Log($"If submit, output: {ReadLetter()}");
+    }
+
+    public char ReadLetter() {
+        SubmitNode current = sTree.head;
+
+        var iBufferCopy = new List<bool>(iBuffer);
+
+        while (iBufferCopy.Count > 0 && current != null) {
+            if (Pop(iBufferCopy)) current = current.right;
+            else current = current.left;
+        }
+
+        return (current != null && current.value.HasValue) ? current.value.Value : '_';
     }
 
     public void Submit() {
-        Print("Submitting iBuffer");
         SubmitNode current = sTree.head;
         while (iBuffer.Count > 0 && current != null) {
             if (Pop()) current = current.right;
@@ -148,6 +164,7 @@ public class InputHandler : MonoBehaviour {
             char letter = current.GetOrExec();
             cBuffer.Append(letter);
             Debug.Log($"Submission Thusfar: {cBuffer}");
+            GameManager.Instance.NotifyHandlers();
         } else Debug.Log("Submission Error: Overflow, current is null.");
     }
 
@@ -159,11 +176,15 @@ public class InputHandler : MonoBehaviour {
         return ret;
     }
 
-    // When the user types POP, the first bool is popped.
+    // When the user types POP, the first bool is popped. Also helper function.
     // The length is reduced.
     public bool Pop() {
-        bool ret = iBuffer[0];
-        iBuffer.RemoveAt(0);
+        return Pop(iBuffer);
+    }
+
+    private bool Pop(List<bool> b) {
+        bool ret = b[0];
+        b.RemoveAt(0);
         return ret;
     }
 
@@ -181,5 +202,16 @@ public class InputHandler : MonoBehaviour {
         cBuffer.Clear();
     }
 
+    public bool EndsWith(string value) {
+        if (cBuffer.Length < value.Length) return false;
+
+        for (int i = 0; i < value.Length; i++) {
+            if (cBuffer[cBuffer.Length - value.Length + i] != value[i]) return false;
+        }
+
+        History.Add(value);
+        cBuffer.Clear();
+        return true;
+    }
 
 }
